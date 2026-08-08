@@ -30,9 +30,9 @@ function baseBody() {
 // Khử field động: toolNameMap, kiro conversationId (uuid), timestamp trong content.
 function clean(body) {
   const s = JSON.stringify(body, (k, v) => {
-    if (k === "_toolNameMap" || k === "conversationId") return undefined;
+    if (k === "_toolNameMap" || k === "conversationId" || k === "agentContinuationId") return undefined;
     return v;
-  }).replace(/Current time is [^"\\]+/g, "Current time is <TS>");
+  }).replace(/Current date is [^"\\]+/g, "Current date is <TS>");
   return JSON.parse(s);
 }
 

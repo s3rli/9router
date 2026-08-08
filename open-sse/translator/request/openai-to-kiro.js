@@ -338,7 +338,13 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
     ? (credentials?.providerSpecificData?.profileArn || "")
     : (credentials?.providerSpecificData?.profileArn || resolveDefaultProfileArn(authMethod));
 
-  const timestamp = new Date().toISOString();
+  // Day-granular, not per-second: this string is baked into the frozen
+  // sessionStart (see applyKiroSessionReplay) that forms Kiro's cacheable
+  // prefix. A per-second timestamp needlessly changes that prefix whenever the
+  // sessionStart is re-created after a replay-store miss (TTL/eviction), which
+  // misses Bedrock's implicit prompt cache even when the entry is still warm.
+  // Day granularity keeps the prefix byte-stable across the 5-minute cache TTL.
+  const timestamp = new Date().toISOString().slice(0, 10);
 
   // Kiro CLI/KAS sends these as top-level systemPrompt. Keep a content fallback
   // too because the CodeWhisperer surface does not always enforce top-level
@@ -351,7 +357,7 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
     systemPromptParts.push(KIRO_AGENTIC_SYSTEM_PROMPT);
   }
   const systemPrompt = systemPromptParts.filter(Boolean).join("\n\n");
-  const currentTimeContext = `[Context: Current time is ${timestamp}]`;
+  const currentTimeContext = `[Context: Current date is ${timestamp}]`;
   const contentPrefix = [systemPrompt, currentTimeContext].filter(Boolean).join("\n\n");
 
   const sessionIdentity = resolveSessionIdentity({ headers: credentials?.rawHeaders, body, connectionId: credentials?.connectionId, scope: "kiro" });
