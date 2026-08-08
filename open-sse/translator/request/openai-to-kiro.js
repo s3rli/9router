@@ -439,6 +439,22 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
     cacheTools.push({ cachePoint: { type: "default" } });
   }
 
+  // v2 (DEAD END — kept env-gated + off by default as a documented experiment):
+  // The idea was to cache the large accumulated conversation prefix, which Bedrock's
+  // implicit cache stops covering once a conversation grows long (measured: ~47% -> ~15%
+  // discount from short to long conversations). But CodeWhisperer's generateAssistantResponse
+  // REJECTS a cachePoint entry in `history` with HTTP 500 ("unexpected error"), deterministically
+  // — its history is a strict alternating user/assistant array of string-content objects with no
+  // legal slot for a cachePoint block (only the tools array tolerates one, hence v1). Native
+  // Bedrock Converse would allow it, but that is not the endpoint Kiro uses.
+  // See docs/kiro-prompt-cache-experiment.md. Do NOT enable in production.
+  if (process.env.KIRO_CACHE_HISTORY === "1") {
+    const cacheHistory = payload.conversationState.history;
+    if (Array.isArray(cacheHistory) && cacheHistory.length > 0) {
+      cacheHistory.push({ cachePoint: { type: "default" } });
+    }
+  }
+
   // Tag payload so the executor can route the upstream model id correctly.
   Object.defineProperty(payload, "_kiroUpstreamModel", {
     value: upstreamModel,
