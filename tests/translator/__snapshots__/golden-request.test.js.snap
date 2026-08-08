@@ -276,6 +276,11 @@ continue",
                 "name": "get_weather",
               },
             },
+            {
+              "cachePoint": {
+                "type": "default",
+              },
+            },
           ],
         },
       },

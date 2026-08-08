@@ -426,6 +426,19 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
     if (topP !== undefined) payload.inferenceConfig.topP = topP;
   }
 
+  // Explicit prompt caching, mirroring kirocc / KiroProxy's cache_control->cachePoint
+  // conversion. CodeWhisperer (Claude on Bedrock) accepts a `cachePoint` marker as a
+  // peer entry in the tools array; Bedrock then caches the (stable, per-conversation)
+  // tool definitions deterministically instead of relying on its best-effort implicit
+  // cache. A cachePoint in `history` would cache the larger system/context prefix too,
+  // but Kiro's history must stay strictly user/assistant-alternating
+  // (validateKiroConversation), so that requires making the validator/executor
+  // cachePoint-aware first — left for a follow-up.
+  const cacheTools = payload.conversationState.currentMessage.userInputMessage.userInputMessageContext?.tools;
+  if (Array.isArray(cacheTools) && cacheTools.length > 0) {
+    cacheTools.push({ cachePoint: { type: "default" } });
+  }
+
   // Tag payload so the executor can route the upstream model id correctly.
   Object.defineProperty(payload, "_kiroUpstreamModel", {
     value: upstreamModel,
