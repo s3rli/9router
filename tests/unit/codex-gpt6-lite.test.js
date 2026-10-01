@@ -100,6 +100,33 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
     expect(body.reasoning.context).toBe("all_turns");
   });
 
+  it("falls back to the full transport when hosted web_search is requested", async () => {
+    const fetchMock = vi.spyOn(proxyFetchModule, "proxyAwareFetch").mockResolvedValue({
+      ok: true, status: 200, headers: new Map(),
+    });
+    // One shared executor: the web_search decision must not leak into the next request.
+    const executor = new CodexExecutor();
+    await executor.execute({
+      model: "gpt-6.1-sol",
+      body: { model: "gpt-6.1-sol", input: "news today?", tools: [{ type: "web_search" }] },
+      stream: true,
+      credentials,
+    });
+    await executor.execute({
+      model: "gpt-6.1-sol",
+      body: { model: "gpt-6.1-sol", input: "hello" },
+      stream: true,
+      credentials,
+    });
+
+    const [[, searchReq], [, plainReq]] = fetchMock.mock.calls;
+    const searchBody = JSON.parse(searchReq.body);
+    expect(searchReq.headers["x-openai-internal-codex-responses-lite"]).toBeUndefined();
+    expect(searchBody.tools).toEqual(expect.arrayContaining([expect.objectContaining({ type: "web_search" })]));
+    expect(searchBody.input[0].type).not.toBe("additional_tools");
+    expect(plainReq.headers["x-openai-internal-codex-responses-lite"]).toBe("true");
+  });
+
   it("keeps the legacy transport for other models", () => {
     const executor = new CodexExecutor();
     const body = executor.transformRequest("gpt-5.5", { model: "gpt-5.5", input: "hello" }, true, credentials);
