@@ -25,9 +25,12 @@ const CODEX_SSE_USER_OUTPUT_PATTERNS = [
 ];
 const CODEX_SSE_PEEK_BYTES = 256 * 1024;
 const CODEX_MODEL_CAPACITY_MESSAGE = "Selected model is at capacity. Please try a different model.";
-function isCodexResponsesLiteModel(model) {
+function getCodexModelEntry(model) {
   const baseId = String(model || "").replace(/\([^()]+\)\s*$/, "");
-  return getProviderModels("cx").some((entry) => entry.id === baseId && entry.responsesLite === true);
+  return getProviderModels("cx").find((entry) => entry.id === baseId);
+}
+function isCodexResponsesLiteModel(model) {
+  return getCodexModelEntry(model)?.responsesLite === true;
 }
 
 // Server-generated item id prefixes that Codex /responses cannot resolve when store=false
@@ -143,7 +146,8 @@ function resolveCacheSessionId(body, credentials) {
 function normalizeReasoningEffort(model, value) {
   const supportedLevels = getThinkingLevels("codex", model);
   if (supportedLevels?.includes(value)) return value;
-  if (isCodexResponsesLiteModel(model) && (value === "none" || value === "minimal")) return "low";
+  // Clamp by the model's declared levels, not its transport: gpt-6.1-sol left Lite but still cannot disable reasoning.
+  if (getCodexModelEntry(model)?.thinkingLevels && (value === "none" || value === "minimal")) return "low";
   if (value === "ultra" && supportedLevels?.includes("max")) return "max";
   if (value === "max" || value === "ultra") return "xhigh";
   return value;

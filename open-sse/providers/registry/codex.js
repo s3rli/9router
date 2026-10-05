@@ -52,7 +52,9 @@ export default {
     },
   },
   models: [
-    { id: "gpt-6.1-sol", name: "GPT 6.1 Sol", responsesLite: true, thinkingLevels: GPT_6_LITE_THINKING_LEVELS },
+    // Not on Responses Lite: Lite forces parallel_tool_calls=false (upstream rejects true), which made
+    // agentic tool loops strictly serial and roughly 2x slower than gpt-6-astra.
+    { id: "gpt-6.1-sol", name: "GPT 6.1 Sol", thinkingLevels: GPT_6_LITE_THINKING_LEVELS },
     { id: "gpt-6-astra", name: "GPT 6.0 Astra" },
     { id: "gpt-6-sol", name: "GPT 6.0 Sol", responsesLite: true, thinkingLevels: GPT_6_LITE_THINKING_LEVELS },
     { id: "gpt-6-luna", name: "GPT 6.0 Luna", responsesLite: true, thinkingLevels: GPT_6_LITE_THINKING_LEVELS },

@@ -10,9 +10,13 @@ const credentials = { connectionId: "fixture", accessToken: "fixture-token" };
 afterEach(() => vi.restoreAllMocks());
 
 describe("Codex GPT-6 Sol/Luna transport", () => {
-  it.each(["gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna"])("lists %s with Codex capabilities", (model) => {
+  it.each([
+    ["gpt-6.1-sol", false],
+    ["gpt-6-sol", true],
+    ["gpt-6-luna", true],
+  ])("lists %s with Codex capabilities", (model, lite) => {
     const entry = getModelsByProviderId("codex").find((item) => item.id === model);
-    expect(entry?.responsesLite).toBe(true);
+    expect(entry?.responsesLite === true).toBe(lite);
     expect(entry?.thinkingLevels).toEqual(["low", "medium", "high", "xhigh", "max"]);
     expect(getCapabilitiesForModel("codex", model)).toMatchObject({
       vision: true,
@@ -60,13 +64,16 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
     expect(executor.buildHeaders(credentials, true, null, "gpt-6-sol")["x-openai-internal-codex-responses-lite"]).toBe("true");
   });
 
-  it("clamps unsupported GPT-6 reasoning values to Codex's lowest supported level", () => {
-    const body = new CodexExecutor().transformRequest("gpt-6-luna", {
-      model: "gpt-6-luna", input: "hello", reasoning: { effort: "none" },
+  it.each([
+    ["gpt-6-luna", "none"],
+    ["gpt-6.1-sol", "none"],
+    ["gpt-6.1-sol", "minimal"],
+  ])("clamps %s reasoning effort %s to Codex's lowest supported level", (model, effort) => {
+    const body = new CodexExecutor().transformRequest(model, {
+      model, input: "hello", reasoning: { effort },
     }, true, credentials);
 
     expect(body.reasoning.effort).toBe("low");
-    expect(body.reasoning.context).toBe("all_turns");
   });
 
   it("maps GPT-6.1 Sol's Codex-only ultra effort to max", () => {
@@ -74,7 +81,21 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
       model: "gpt-6.1-sol", input: "hello", reasoning: { effort: "ultra" },
     }, true, credentials);
 
-    expect(body.reasoning).toEqual({ effort: "max", context: "all_turns" });
+    expect(body.reasoning.effort).toBe("max");
+  });
+
+  it("sends GPT-6.1 Sol on the full transport so tool calls can run in parallel", () => {
+    const executor = new CodexExecutor();
+    const tool = { type: "function", name: "run", parameters: { type: "object", properties: {} } };
+    const body = executor.transformRequest("gpt-6.1-sol", {
+      model: "gpt-6.1-sol", input: "hello", instructions: "Do the task", tools: [tool], parallel_tool_calls: false,
+    }, true, credentials);
+
+    expect(executor.buildHeaders(credentials, true, null, "gpt-6.1-sol")["x-openai-internal-codex-responses-lite"]).toBeUndefined();
+    expect(body.parallel_tool_calls).toBeUndefined();
+    expect(body.tools).toEqual([expect.objectContaining({ name: "run" })]);
+    expect(body.input[0].type).not.toBe("additional_tools");
+    expect(body.reasoning.context).toBeUndefined();
   });
 
   it("sends the Lite shape and header in the actual outbound request", async () => {
@@ -107,14 +128,14 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
     // One shared executor: the web_search decision must not leak into the next request.
     const executor = new CodexExecutor();
     await executor.execute({
-      model: "gpt-6.1-sol",
-      body: { model: "gpt-6.1-sol", input: "news today?", tools: [{ type: "web_search" }] },
+      model: "gpt-6-sol",
+      body: { model: "gpt-6-sol", input: "news today?", tools: [{ type: "web_search" }] },
       stream: true,
       credentials,
     });
     await executor.execute({
-      model: "gpt-6.1-sol",
-      body: { model: "gpt-6.1-sol", input: "hello" },
+      model: "gpt-6-sol",
+      body: { model: "gpt-6-sol", input: "hello" },
       stream: true,
       credentials,
     });
