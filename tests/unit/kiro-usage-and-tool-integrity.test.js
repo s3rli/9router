@@ -252,6 +252,92 @@ describe("C: one unusable tool fragment does not take the whole turn with it", (
   });
 });
 
+// Kiro sends no input fragment when the model calls a tool that takes no
+// arguments. That is a valid call, not a broken one.
+describe("E: a tool call without input is a call with empty arguments", () => {
+  function toolCalls(body) {
+    const calls = new Map();
+    for (const line of body.split("\n")) {
+      if (!line.startsWith("data: {")) continue;
+      for (const call of JSON.parse(line.slice(6)).choices?.[0]?.delta?.tool_calls || []) {
+        const entry = calls.get(call.index) || { id: call.id, name: "", arguments: "" };
+        entry.name += call.function?.name || "";
+        entry.arguments += call.function?.arguments || "";
+        calls.set(call.index, entry);
+      }
+    }
+    return [...calls.values()];
+  }
+
+  it("emits the call with arguments {}", async () => {
+    const body = await runNoRepair([
+      frame("toolUseEvent", { toolUseId: "noargs", name: "list_tabs" }),
+      frame("metadataEvent", { stopReason: "tool_use" })
+    ]);
+
+    expect(toolCalls(body)).toEqual([{ id: "noargs", name: "list_tabs", arguments: "{}" }]);
+    expect(body).toContain('"finish_reason":"tool_calls"');
+    expect(body).not.toContain("invalid_kiro_tool_call");
+  });
+
+  it("passes object input through unchanged", async () => {
+    const body = await runNoRepair([
+      frame("toolUseEvent", { toolUseId: "withargs", name: "read_file", input: { path: "a.txt" } }),
+      frame("metadataEvent", { stopReason: "tool_use" })
+    ]);
+
+    expect(toolCalls(body)).toEqual([
+      { id: "withargs", name: "read_file", arguments: '{"path":"a.txt"}' }
+    ]);
+  });
+
+  it.each([
+    ["truncated JSON", '{"path":'],
+    ["a JSON string", '"a.txt"'],
+    ["a JSON array", '["a.txt"]'],
+    ["a JSON number", "42"],
+    ["native null", null],
+    ["a native array", ["a.txt"]],
+    ["a native number", 42],
+    ["native false", false]
+  ])("still drops input that is %s", async (_label, input) => {
+    const body = await runNoRepair([
+      frame("toolUseEvent", { toolUseId: "broken", name: "read_file", input }),
+      frame("metadataEvent", { stopReason: "tool_use" })
+    ]);
+
+    expect(toolCalls(body)).toEqual([]);
+    expect(body).toContain("invalid_kiro_tool_call");
+  });
+
+  it("still drops a tool_call wrapper with no input, since it names no MCP tool", async () => {
+    const body = await runNoRepair([
+      frame("toolUseEvent", { toolUseId: "wrapper", name: "tool_call" }),
+      frame("metadataEvent", { stopReason: "tool_use" })
+    ]);
+
+    expect(toolCalls(body)).toEqual([]);
+    expect(body).toContain("invalid_kiro_tool_call");
+  });
+
+  it("keeps a wrapper whose nested call has empty arguments", async () => {
+    const body = await runNoRepair([
+      frame("toolUseEvent", {
+        toolUseId: "wrapper",
+        name: "tool_call",
+        input: { name: "mcp_list_tabs", arguments: {} }
+      }),
+      frame("metadataEvent", { stopReason: "tool_use" })
+    ]);
+
+    expect(toolCalls(body)).toEqual([{
+      id: "wrapper",
+      name: "tool_call",
+      arguments: '{"name":"mcp_list_tabs","arguments":{}}'
+    }]);
+  });
+});
+
 describe("B: truncation after output closes as length, not as a failure", () => {
   it("keeps the text and reports finish_reason length", async () => {
     const body = await run([

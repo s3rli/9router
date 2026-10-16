@@ -295,10 +295,23 @@ describe("Kiro terminal integrity recovery", () => {
   });
 
   it("requires complete direct tool input and keeps the failure private", async () => {
-    const pending = frame("toolUseEvent", { toolUseId: "pending", name: "read_file" });
+    const pending = frame("toolUseEvent", { toolUseId: "pending", name: "read_file", input: '{"path":' });
     fetchMock
       .mockResolvedValueOnce(response([pending]))
       .mockResolvedValueOnce(response([pending]));
+
+    const body = await (await execute()).response.text();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(body).toContain("kiro_tool_call_repair_retry_failed");
+    expect(body).not.toContain('"name":"read_file"');
+  });
+
+  it("repairs a native non-object input instead of sending it as empty arguments", async () => {
+    const rejected = frame("toolUseEvent", { toolUseId: "rejected", name: "read_file", input: ["a.txt"] });
+    fetchMock
+      .mockResolvedValueOnce(response([rejected]))
+      .mockResolvedValueOnce(response([rejected]));
 
     const body = await (await execute()).response.text();
 
