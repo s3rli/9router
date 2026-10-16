@@ -708,12 +708,18 @@ export class KiroExecutor extends BaseExecutor {
         tool.inputBytes = encoder.encode(JSON.stringify(input)).byteLength;
         state.bufferedToolBytes += tool.inputBytes;
       } else {
+        // The tool stays buffered after this throw, so remember the rejection:
+        // without it parsedToolInput would read the call as having no input.
+        tool.inputRejected = true;
         throw new Error("Kiro tool input must be a JSON object");
       }
       assertToolBufferBound();
     };
     const parsedToolInput = (tool) => {
-      if (!tool.inputKind) throw new Error("Kiro tool call is missing input");
+      if (tool.inputRejected) throw new Error("Kiro tool input must be a JSON object");
+      // Kiro sends no input fragment when the model calls a tool that takes no
+      // arguments. Dropping those calls ended no-arg-only turns with nothing.
+      if (!tool.inputKind) return {};
       if (tool.inputKind === "object") return tool.inputObject;
       try {
         const input = JSON.parse(tool.inputChunks.join(""));
