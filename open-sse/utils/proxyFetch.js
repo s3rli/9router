@@ -112,6 +112,10 @@ const GOOGLE_DNS_SERVERS = ["8.8.8.8", "8.8.4.4"];
 // c-ares' default retries (~50 s) on every bypassed request before the
 // system-DNS fallback. One short try per server bounds that to ~2 s.
 const GOOGLE_DNS_TIMEOUT_MS = 1000;
+// A failure is cached for less than a success: on a blocked network it costs
+// one short lookup a minute, and a network that blocked a lookup only once
+// gets the bypass back within a minute.
+const DNS_FAILURE_TTL_MS = 60 * 1000;
 const HTTPS_PORT = 443;
 const HTTP_SUCCESS_MIN = 200;
 const HTTP_SUCCESS_MAX = 300;
@@ -141,8 +145,12 @@ async function resolveRealIP(hostname) {
   } catch (error) {
     console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, error.message);
     // Cache the failure too, so a blocked resolver costs one short lookup per
-    // TTL instead of one per request.
-    DNS_CACHE.set(hostname, { ip: null, expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
+    // DNS_FAILURE_TTL_MS instead of one per request. A concurrent lookup may
+    // have succeeded meanwhile; its address stands.
+    const current = DNS_CACHE.get(hostname);
+    if (!(current?.ip && Date.now() < current.expiry)) {
+      DNS_CACHE.set(hostname, { ip: null, expiry: Date.now() + DNS_FAILURE_TTL_MS });
+    }
     return null;
   }
 }
