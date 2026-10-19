@@ -124,7 +124,7 @@ const MITM_BYPASS_HOSTS = [
 const GOOGLE_DNS_SERVERS = ["8.8.8.8", "8.8.4.4"];
 // A network that blocks outbound DNS to 8.8.8.8 made each lookup wait out
 // c-ares' default retries (~50 s) on every bypassed request before the
-// system-DNS fallback. One short try per server bounds that to ~2 s.
+// system-DNS fallback. One short try per server bounds that to ~2-3 s.
 const GOOGLE_DNS_TIMEOUT_MS = 1000;
 // A failure is cached for less than a success: on a blocked network it costs
 // one short lookup a minute, and a network that blocked a lookup only once
