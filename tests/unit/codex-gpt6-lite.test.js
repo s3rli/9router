@@ -177,6 +177,21 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
     expect(body.instructions).toBe("");
   });
 
+  it("keeps a converted native request's empty instructions when the request is transformed again for a retry", () => {
+    const executor = new CodexExecutor();
+    const tool = { type: "function", name: "run", parameters: { type: "object", properties: {} } };
+    const body = { model: "gpt-6.1-sol", input: [
+      { type: "additional_tools", role: "developer", tools: [tool] },
+      { type: "message", role: "user", content: [{ type: "input_text", text: "go" }] },
+    ], instructions: "", tools: null };
+
+    executor.transformRequest("gpt-6.1-sol", body, true, credentials);
+    const retried = executor.transformRequest("gpt-6.1-sol", body, true, credentials);
+
+    expect(retried.instructions).toBe("");
+    expect(retried.tools).toEqual([tool]);
+  });
+
   it("converts an ordinary Responses request to the Lite shape", () => {
     const executor = new CodexExecutor();
     const tool = { type: "function", name: "run", parameters: { type: "object", properties: {} } };

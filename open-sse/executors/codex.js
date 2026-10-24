@@ -25,6 +25,9 @@ const CODEX_SSE_USER_OUTPUT_PATTERNS = [
 ];
 const CODEX_SSE_PEEK_BYTES = 256 * 1024;
 const CODEX_MODEL_CAPACITY_MESSAGE = "Selected model is at capacity. Please try a different model.";
+// Retries re-run transformRequest on the same, already converted body; remembering the
+// conversion keeps a native request's empty instructions from turning into the default prompt.
+const CONVERTED_LITE_PREFIX_BODIES = new WeakSet();
 function getCodexModelEntry(model) {
   const baseId = String(model || "").replace(/\([^()]+\)\s*$/, "");
   return getProviderModels("cx").find((entry) => entry.id === baseId);
@@ -434,7 +437,6 @@ export class CodexExecutor extends BaseExecutor {
     // regular Responses, move all prefixed tools without duplicating definitions.
     // A non-Lite model (gpt-6.1-sol in this fork) can still receive the native
     // Lite shape from a Codex client, so convert it whenever full Responses is used.
-    let convertedLitePrefix = false;
     if (Array.isArray(body.input) && body.input.some(item => item?.type === "additional_tools")
       && (!isCodexResponsesLiteModel(upstreamModel)
         || body.tools?.some?.(tool => tool?.type === "web_search")
@@ -449,9 +451,10 @@ export class CodexExecutor extends BaseExecutor {
         }
       }
       body.tools = tools;
-      convertedLitePrefix = body.input.some(item => item?.type === "additional_tools");
+      CONVERTED_LITE_PREFIX_BODIES.add(body);
       body.input = body.input.filter(item => item?.type !== "additional_tools");
     }
+    const convertedLitePrefix = CONVERTED_LITE_PREFIX_BODIES.has(body);
     const responsesLite = isCodexResponsesLiteModel(upstreamModel)
       && !body.tools?.some?.(tool => tool?.type === "web_search");
 
