@@ -154,6 +154,29 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
     expect(body.input.some(item => item.type === "additional_tools")).toBe(false);
   });
 
+  it.each([
+    ["with hosted search", [{ type: "web_search" }]],
+    ["without hosted search", []],
+  ])("moves a native Lite prefix to top-level tools for non-Lite gpt-6.1-sol (%s)", async (_, extra) => {
+    const fetchMock = vi.spyOn(proxyFetchModule, "proxyAwareFetch").mockResolvedValue({ ok: true, status: 200, headers: new Map() });
+    const tool = { type: "function", name: "run", parameters: { type: "object", properties: {} } };
+    const instruction = { type: "message", role: "developer", content: [{ type: "input_text", text: "Only answer in French" }] };
+    await new CodexExecutor().execute({
+      model: "gpt-6.1-sol", body: { model: "gpt-6.1-sol", input: [
+        { type: "additional_tools", role: "developer", tools: [tool, ...extra] },
+        instruction,
+        { type: "message", role: "user", content: [{ type: "input_text", text: "go" }] },
+      ], instructions: "", tools: null }, stream: true, credentials,
+    });
+    const [, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(options.headers["x-openai-internal-codex-responses-lite"]).toBeUndefined();
+    expect(body.tools).toEqual([tool, ...extra]);
+    expect(body.input.some(item => item.type === "additional_tools")).toBe(false);
+    expect(body.input).toContainEqual(instruction);
+    expect(body.instructions).toBe("");
+  });
+
   it("converts an ordinary Responses request to the Lite shape", () => {
     const executor = new CodexExecutor();
     const tool = { type: "function", name: "run", parameters: { type: "object", properties: {} } };

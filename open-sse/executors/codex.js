@@ -432,9 +432,12 @@ export class CodexExecutor extends BaseExecutor {
     }
     // Hosted search cannot run from a Lite input prefix. When switching to
     // regular Responses, move all prefixed tools without duplicating definitions.
+    // A non-Lite model (gpt-6.1-sol in this fork) can still receive the native
+    // Lite shape from a Codex client, so convert it whenever full Responses is used.
     let convertedLitePrefix = false;
-    if (isCodexResponsesLiteModel(upstreamModel) && Array.isArray(body.input)
-      && (body.tools?.some?.(tool => tool?.type === "web_search")
+    if (Array.isArray(body.input) && body.input.some(item => item?.type === "additional_tools")
+      && (!isCodexResponsesLiteModel(upstreamModel)
+        || body.tools?.some?.(tool => tool?.type === "web_search")
         || body.input.some(item => item?.type === "additional_tools" && item.tools?.some?.(tool => tool?.type === "web_search")))) {
       const tools = Array.isArray(body.tools) ? [...body.tools] : [];
       const seen = new Set(tools.map(tool => `${tool?.type}:${tool?.name || tool?.function?.name || ""}`));
