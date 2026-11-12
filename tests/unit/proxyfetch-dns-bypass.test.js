@@ -40,13 +40,13 @@ vi.mock("net", () => {
   return { default: { Socket }, Socket };
 });
 
-const fallbackFetch = vi.fn(async () => new Response("ok"));
+// proxyFetch's direct path is undici's own fetch, not globalThis.fetch.
+const { fallbackFetch } = vi.hoisted(() => ({ fallbackFetch: vi.fn(async () => new Response("ok")) }));
+vi.mock("undici", async (importOriginal) => ({ ...(await importOriginal()), fetch: fallbackFetch }));
 let proxyAwareFetch;
 
 beforeAll(async () => {
   for (const k of ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"]) delete process.env[k];
-  // proxyFetch keeps the fetch it finds at import time as its direct path.
-  vi.stubGlobal("fetch", fallbackFetch);
   ({ proxyAwareFetch } = await import("../../open-sse/utils/proxyFetch.js"));
 });
 
