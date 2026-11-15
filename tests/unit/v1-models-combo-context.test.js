@@ -80,4 +80,18 @@ describe("/v1/models combo limits", () => {
       capabilities: { contextWindow: 200000 },
     });
   });
+
+  // codex/gpt-6-luna has a 272k provider row under a 1.05M *gpt-6* pattern, so
+  // the published window shows which of the two the suffixed seat resolved to.
+  it("resolves a seat with an effort suffix to its provider's row", async () => {
+    const models = await modelsWithCombo("codex", "gpt-6-luna", [
+      { name: "effort-combo", models: ["cx/gpt-6-luna(high)"] },
+    ]);
+    const combo = models.find((model) => model.id === "effort-combo");
+
+    expect(combo).toMatchObject({
+      context_length: 272000,
+      capabilities: { contextWindow: 272000 },
+    });
+  });
 });

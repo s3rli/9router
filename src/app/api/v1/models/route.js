@@ -23,6 +23,7 @@ import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
+import { stripThinkingSuffix } from "open-sse/translator/concerns/thinkingUnified.js";
 
 // Qoder shares one live resolver across intl (qoder) and CN (qoder-cn); the
 // credentials carry the provider id so qoderModels picks the right region's
@@ -54,11 +55,14 @@ const ALIAS_TO_PROVIDER_ID = {
   ...ALIAS_TO_ID,
 };
 
+// A seat can carry an effort suffix ("cx/gpt-6.1-sol(high)"). Left on, the model id
+// matches no provider row and falls through to the family pattern, so the combo
+// published the API window instead of the provider's own.
 function comboSeatCapabilities(seat) {
   const slash = seat.indexOf("/");
   if (slash <= 0) return null;
   const alias = seat.slice(0, slash);
-  return getCapabilitiesForModel(ALIAS_TO_PROVIDER_ID[alias] || alias, seat.slice(slash + 1));
+  return getCapabilitiesForModel(ALIAS_TO_PROVIDER_ID[alias] || alias, stripThinkingSuffix(seat.slice(slash + 1)));
 }
 
 // Per-provider live model resolvers. Each receives a connection record and
