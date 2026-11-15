@@ -29,9 +29,17 @@ describe("gpt-6 / gpt-5.4+ context windows", () => {
   it("leaves the gateways that truncate lower on their own numbers", () => {
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-luna").contextWindow).toBe(272000);
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-luna-thinking-agentic").contextWindow).toBe(272000);
-    expect(getCapabilitiesForModel("codex", "gpt-5.6-luna").contextWindow).toBe(272000);
+    expect(getCapabilitiesForModel("codex", "gpt-5.6-luna-review").contextWindow).toBe(272000);
     expect(getCapabilitiesForModel("codex", "gpt-5.6-sol").contextWindow).toBe(372000);
     expect(getCapabilitiesForModel("codex", "gpt-6-astra").contextWindow).toBe(272000);
+  });
+
+  // Codex publishes 272k for these as its CLI default, but the backend takes the
+  // API window: sol accepted 884,593-token prompts and luna 701,852.
+  it("gives Codex gpt-6.1-sol and gpt-5.6-luna the API window", () => {
+    for (const model of ["gpt-6.1-sol", "gpt-5.6-luna"]) {
+      expect(getCapabilitiesForModel("codex", model), model).toMatchObject({ contextWindow: API_WINDOW, maxOutput: 128000 });
+    }
   });
 
   it("keeps Devin CLI's seven GPT-5.4/5.5 variants at the gateway's 200k limit", () => {

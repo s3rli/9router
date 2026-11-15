@@ -12,10 +12,10 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("Codex GPT-6 Sol/Luna transport", () => {
   it.each([
-    ["gpt-6.1-sol", false],
-    ["gpt-6-sol", true],
-    ["gpt-6-luna", true],
-  ])("lists %s with Codex capabilities", (model, lite) => {
+    ["gpt-6.1-sol", false, 1050000],
+    ["gpt-6-sol", true, 272000],
+    ["gpt-6-luna", true, 272000],
+  ])("lists %s with Codex capabilities", (model, lite, contextWindow) => {
     const entry = getModelsByProviderId("codex").find((item) => item.id === model);
     expect(entry?.responsesLite === true).toBe(lite);
     expect(entry?.thinkingLevels).toEqual(["low", "medium", "high", "xhigh", "max"]);
@@ -24,7 +24,7 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
       reasoning: true,
       search: true,
       thinkingFormat: "openai",
-      contextWindow: 272000,
+      contextWindow,
       maxOutput: 128000,
     });
     expect(getThinkingLevels("codex", model)).toEqual(["low", "medium", "high", "xhigh", "max"]);

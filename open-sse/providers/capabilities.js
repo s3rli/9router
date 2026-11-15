@@ -233,6 +233,7 @@ const KIRO_GPT_5_6_CAPABILITIES = { vision: true, reasoning: true, search: true,
 const CODEX_GPT_56_SOL_CAPS  = { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 372000, maxOutput: 128000 };
 const CODEX_GPT_56_DEFAULT_CAPS = { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 };
 const CODEX_EXTENDED_CAPS = { ...CODEX_GPT_56_DEFAULT_CAPS, contextWindow: 872000 };
+const CODEX_API_WINDOW_CAPS = { ...CODEX_GPT_56_DEFAULT_CAPS, contextWindow: 1050000 };
 
 // Devin CLI's registry declares a 200k context window for these GPT variants.
 // Keep the GPT feature/output fields because provider overrides short-circuit
@@ -314,9 +315,10 @@ export const PROVIDER_CAPABILITIES = {
   "codex": {
     "gpt-6-astra":               { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
     "gpt-6-sol":                 { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
-    // Without its own entry gpt-6.1-sol fell through to *gpt-6* (1.05M), overstating
-    // the Codex window like any unlisted sibling would.
-    "gpt-6.1-sol":               { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
+    // 272k is the Codex CLI's default window, not a backend limit: through this
+    // provider gpt-6.1-sol accepted 884,593- and 848,481-token prompts (2026-11), so it
+    // takes the 1.05M API window models.dev lists for it.
+    "gpt-6.1-sol":               CODEX_API_WINDOW_CAPS,
     // codex-rs/models-manager/models.json: gpt-6.1-terra has context_window 500000 on Codex
     // (the API model is 1.05M; Codex caps the default window like its siblings).
     "gpt-6.1-terra":             { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 128000 },
@@ -331,7 +333,8 @@ export const PROVIDER_CAPABILITIES = {
     "gpt-5.6-sol-review":        CODEX_GPT_56_SOL_CAPS,
     "gpt-5.6-terra":             CODEX_GPT_56_DEFAULT_CAPS,
     "gpt-5.6-terra-review":      CODEX_GPT_56_DEFAULT_CAPS,
-    "gpt-5.6-luna":              CODEX_GPT_56_DEFAULT_CAPS,
+    // Same as gpt-6.1-sol: a 701,852-token prompt went through on 2026-11-15.
+    "gpt-5.6-luna":              CODEX_API_WINDOW_CAPS,
     "gpt-5.6-luna-review":       CODEX_GPT_56_DEFAULT_CAPS,
   },
   "kiro": {
